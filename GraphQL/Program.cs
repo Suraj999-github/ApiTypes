@@ -7,6 +7,9 @@ using GraphQL.Services;
 using HotChocolate.AspNetCore;
 using HotChocolate.AspNetCore.Voyager;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +35,28 @@ builder.Services
     .AddFiltering()
     .AddSorting()
     .AddProjections();
+
+// -------------------- OpenTelemetry Configuration --------------------
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(
+        serviceName: builder.Environment.ApplicationName,
+        serviceVersion: "1.0.0"))
+    .WithTracing(tracing =>
+    {
+        tracing.AddAspNetCoreInstrumentation()           // HTTP requests
+               .AddHttpClientInstrumentation()           // Outgoing HTTP calls
+               .AddHotChocolateInstrumentation()         //  GraphQL activities
+               .AddConsoleExporter();                    //  For debugging – remove in production
+                                                         // .AddOtlpExporter(options => options.Endpoint = new Uri("http://localhost:4317"));
+    })
+    .WithMetrics(metrics =>
+    {
+        metrics.AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddConsoleExporter();
+    });
+
+
 
 // Add CORS (optional, for frontend integration)
 builder.Services.AddCors(options =>
